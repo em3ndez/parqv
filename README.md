@@ -8,7 +8,7 @@
 
 **`parqv` is a Python-based interactive TUI (Text User Interface) tool designed to explore, analyze, and understand Parquet files directly within your terminal.** Forget juggling multiple commands; `parqv` provides a unified, visual experience.
 
-## 💻 Demo (Placeholder)
+## 💻 Demo
 
 ![parqv.gif](assets/parqv.gif)
 
