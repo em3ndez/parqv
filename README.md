@@ -2,7 +2,6 @@
 
 [![Python Version](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![PyPI version](https://badge.fury.io/py/parqv.svg)](https://badge.fury.io/py/parqv) <!-- Link after PyPI release -->
 [![Built with Textual](https://img.shields.io/badge/Built%20with-Textual-blueviolet.svg)](https://textual.textualize.io/)
 <!-- Optional: Add BuyMeACoffee or other badges later if desired -->
 
