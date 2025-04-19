@@ -1,0 +1,150 @@
+/* --- Base Screen Styles --- */
+Screen {
+    background: $surface;
+    color: $text;
+}
+
+/* --- Header & Footer Styles --- */
+Header {
+    background: $primary;
+}
+Footer {
+    background: $primary-darken-1;
+}
+Footer > .footer--key {
+    color: $text-muted;
+}
+Footer > .footer--highlight-key {
+    background: $accent-darken-1;
+    color: $text;
+    text-style: bold;
+}
+
+/* --- Tabbed Interface Styles --- */
+TabbedContent {
+    height: 100%;
+}
+TabbedContent > Tabs {
+    background: $primary-darken-1;
+    color: $text-muted;
+}
+TabbedContent > Tabs > Tab {
+    padding: 1 2;
+}
+TabbedContent > Tabs > Tab:hover {
+    background: $primary;
+}
+TabbedContent > Tabs > .--current {
+     background: $accent;
+     color: $text;
+     text-style: bold;
+}
+TabbedContent > Content {
+    padding: 1 2;
+    height: 1fr;
+    width: 100%;
+    overflow: hidden;
+}
+TabbedContent > Content > * {
+     height: 100%;
+     width: 100%;
+}
+
+/* --- Schema Tab (#schema-view - VerticalScroll) --- */
+#schema-view {
+    padding: 0;
+}
+#schema-view > ListView#column-list-view {
+    border: round $accent-lighten-2;
+    margin-bottom: 1;
+    background: $primary-background;
+    overflow: auto;
+}
+#schema-view > ListView#column-list-view > ListItem {
+    padding: 0 1;
+    height: auto;
+}
+#schema-view > ListView#column-list-view > ListItem.--highlight {
+    background: $accent;
+    color: $text;
+}
+#schema-view > ListView#column-list-view > ListItem.--highlight Label {
+    color: $text;
+}
+#schema-view > LoadingIndicator#schema-loading-indicator {
+    margin: 1 0;
+    width: 100%;
+    text-align: center;
+}
+#schema-view > Container#schema-stats-content {
+    padding: 1;
+    overflow: auto;
+}
+#schema-view .stats-line {
+    margin-bottom: 0;
+    height: auto;
+    width: 100%;
+}
+#schema-view .stats-code {
+    background: $panel-darken-1;
+    border: solid $accent-lighten-1;
+    padding: 0 1;
+    margin: 1 0;
+    width: 100%;
+    height: auto;
+    overflow: auto;
+}
+#schema-view .stats-error {
+    color: $error;
+}
+
+/* --- Metadata Tab (#metadata-view - VerticalScroll) --- */
+#metadata-view {
+    overflow-y: auto;
+}
+#metadata-view > Pretty {
+    width: 100%;
+}
+
+/* --- Data Preview Tab (#data-view - Container) --- */
+#data-view {
+}
+#data-view > DataTable {
+    height: 100%;
+    width: 100%;
+}
+
+/* --- Row Groups Tab (#rowgroup-view - VerticalScroll) --- */
+#rowgroup-view {
+    overflow-y: auto;
+}
+#rowgroup-view > DataTable {
+    width: 100%;
+}
+
+/* --- General Widget Styles --- */
+DataTable {
+    margin-top: 1;
+}
+DataTable > Header {
+    background: $secondary;
+    color: $text;
+    text-style: bold;
+}
+DataTable > Body > Row.--cursor {
+     background: $accent;
+     color: $text;
+}
+DataTable > Body > Row:hover {
+     background: $secondary-darken-2;
+}
+
+/* --- Error Message Styles (Used in App Level Error) --- */
+.error-title {
+    color: $error;
+    text-style: bold;
+    margin-bottom: 1;
+}
+.error-content {
+    color: $error;
+}
