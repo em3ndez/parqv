@@ -1,34 +1,40 @@
-import sys
-from pathlib import Path
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Type
 
 from textual.app import App, ComposeResult, Binding
 from textual.containers import Container
 from textual.widgets import Header, Footer, Static, Label, TabbedContent, TabPane
 
-from .parquet_handler import ParquetHandler, ParquetHandlerError
+from .handlers import (
+    DataHandler,
+    DataHandlerError,
+    ParquetHandler,
+    JsonHandler,
+)
+from .views.data_view import DataView
 from .views.metadata_view import MetadataView
 from .views.schema_view import SchemaView
-from .views.data_view import DataView
-from .views.row_group_view import RowGroupView
 
 LOG_FILENAME = "parqv.log"
 file_handler = RotatingFileHandler(
     LOG_FILENAME, maxBytes=1024 * 1024 * 5, backupCount=3, encoding="utf-8"
 )
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] %(name)s (%(filename)s:%(lineno)d) - %(message)s",
-    handlers=[file_handler], # Log to file
+    handlers=[file_handler, logging.StreamHandler(sys.stdout)],
 )
-
 log = logging.getLogger(__name__)
+
+AnyHandler = DataHandler
+AnyHandlerError = DataHandlerError
 
 
 class ParqV(App[None]):
-    """A Textual app to visualize Parquet files."""
+    """A Textual app to visualize Parquet or JSON files."""
 
     CSS_PATH = "parqv.css"
     BINDINGS = [
@@ -37,60 +43,89 @@ class ParqV(App[None]):
 
     # App State
     file_path: Optional[Path] = None
-    handler: Optional[ParquetHandler] = None
+    handler: Optional[AnyHandler] = None  # Use ABC type hint
+    handler_type: Optional[str] = None  # Keep for display ('parquet', 'json')
     error_message: Optional[str] = None
 
     def __init__(self, file_path_str: Optional[str] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        log.info("Initializing ParqVApp...")
-        if file_path_str:
-            self.file_path = Path(file_path_str)
-            log.info(f"Attempting to load file: {self.file_path}")
+        if not file_path_str:
+            self.error_message = "No file path provided."
+            log.error(self.error_message)
+            return
+
+        self.file_path = Path(file_path_str)
+        log.debug(f"Input file path: {self.file_path}")
+
+        if not self.file_path.is_file():
+            self.error_message = f"File not found or is not a regular file: {self.file_path}"
+            log.error(self.error_message)
+            return
+
+        # Handler Detection
+        handler_class: Optional[Type[AnyHandler]] = None
+        handler_error_class: Type[AnyHandlerError] = DataHandlerError
+        detected_type = "unknown"
+        file_suffix = self.file_path.suffix.lower()
+
+        if file_suffix == ".parquet":
+            log.info("Detected '.parquet' extension, using ParquetHandler.")
+            handler_class = ParquetHandler
+            detected_type = "parquet"
+        elif file_suffix in [".json", ".ndjson"]:
+            log.info(f"Detected '{file_suffix}' extension, using JsonHandler.")
+            handler_class = JsonHandler
+            detected_type = "json"
+        else:
+            self.error_message = f"Unsupported file extension: '{file_suffix}'. Only .parquet, .json, .ndjson are supported."
+            log.error(self.error_message)
+            return
+
+        # Instantiate Handler
+        if handler_class:
+            log.info(f"Attempting to initialize {detected_type.capitalize()} handler for: {self.file_path}")
             try:
-                # Initialize the Parquet handler on app start
-                self.handler = ParquetHandler(self.file_path)
-                log.info("Parquet handler initialized successfully.")
-            except ParquetHandlerError as e:
-                self.error_message = str(e)
-                log.error(f"Failed to initialize handler: {e}", exc_info=True)
+                self.handler = handler_class(self.file_path)
+                self.handler_type = detected_type
+                log.info(f"{detected_type.capitalize()} handler initialized successfully.")
+            except DataHandlerError as e:
+                self.error_message = f"Failed to initialize {detected_type} handler: {e}"
+                log.error(self.error_message, exc_info=True)
             except Exception as e:
-                self.error_message = (
-                    f"An unexpected error occurred during initialization: {e}"
-                )
-                log.exception("Unexpected error during app initialization:")
+                self.error_message = f"An unexpected error occurred during {detected_type} handler initialization: {e}"
+                log.exception(f"Unexpected error during {detected_type} handler initialization:")
 
     def compose(self) -> ComposeResult:
         yield Header()
-
         if self.error_message:
             log.error(f"Displaying error message: {self.error_message}")
             yield Container(
                 Label("Error Loading File:", classes="error-title"),
                 Static(self.error_message, classes="error-content"),
+                id="error-container"
             )
         elif self.handler:
-            log.debug("Composing main layout with TabbedContent.")
+            log.debug(f"Composing main layout with TabbedContent for {self.handler_type} handler.")
             with TabbedContent(id="main-tabs"):
-                with TabPane("Metadata", id="tab-metadata"):
-                    yield MetadataView(id="metadata-view")
-                with TabPane("Schema", id="tab-schema"):
-                    yield SchemaView(id="schema-view")
-                with TabPane("Data Preview", id="tab-data"):
-                    yield DataView(id="data-view")
-                with TabPane("Row Groups", id="tab-rowgroups"):
-                    yield RowGroupView(id="rowgroup-view")
+                yield TabPane("Metadata", MetadataView(id="metadata-view"), id="tab-metadata")
+                yield TabPane("Schema", SchemaView(id="schema-view"), id="tab-schema")
+                yield TabPane("Data Preview", DataView(id="data-view"), id="tab-data")
         else:
-            log.warning("No handler available, showing 'no file' message.")
-            yield Container(Label("No file loaded or handler initialization failed."))
-
+            log.error("Compose called but no handler and no error message. Initialization likely failed silently.")
+            yield Container(Label("Initialization failed."), id="init-failed")
         yield Footer()
 
     def on_mount(self) -> None:
         log.debug("App mounted.")
         try:
             header = self.query_one(Header)
+            display_name = "N/A"
+            format_name = "Unknown"
             if self.handler and self.file_path:
-                header.title = f"parqv - {self.file_path.name}"
+                display_name = self.file_path.name
+                format_name = self.handler_type.capitalize() if self.handler_type else "Unknown"
+                header.title = f"parqv - {display_name}"
+                header.sub_title = f"Format: {format_name}"
             elif self.error_message:
                 header.title = "parqv - Error"
             else:
@@ -98,33 +133,35 @@ class ParqV(App[None]):
         except Exception as e:
             log.error(f"Failed to set header title: {e}")
 
-
     def action_quit(self) -> None:
         log.info("Quit action triggered.")
+        if self.handler:
+            try:
+                self.handler.close()
+            except Exception as e:
+                log.error(f"Error during handler cleanup: {e}")
         self.exit()
 
 
 # CLI Entry Point
 def run_app():
-    log.info("--- parqv started ---")
+    log.info("--- parqv (ABC Handler) started ---")
     if len(sys.argv) < 2:
-        print("Usage: parqv <path_to_parquet_file>")
+        print("Usage: parqv <path_to_parquet_or_json_file>")
         log.error("No file path provided.")
         sys.exit(1)
 
     file_path_str = sys.argv[1]
-    file_path = Path(file_path_str)
-    log.debug(f"File path from argument: {file_path}")
+    log.debug(f"File path from argument: {file_path_str}")
 
-    # Basic file validation
-    if not file_path.is_file():
-        print(f"Error: Path is not a file or does not exist: {file_path}")
-        log.error(f"Invalid file path provided: {file_path}")
+    _path = Path(file_path_str)
+    if not _path.suffix.lower() in ['.parquet', '.json', '.ndjson']:
+        print(f"Error: Unsupported file type '{_path.suffix}'. Please provide a .parquet, .json, or .ndjson file.")
+        log.error(f"Unsupported file type provided via CLI: {_path.suffix}")
         sys.exit(1)
 
     app = ParqV(file_path_str=file_path_str)
     app.run()
-    log.info("--- parqv finished ---")
 
 
 if __name__ == "__main__":

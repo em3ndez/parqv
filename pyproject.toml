@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "parqv"
-version = "0.1.0"
-description = "An interactive Python TUI for visualizing, exploring, and analyzing Parquet files directly in your terminal."
+version = "0.2.0"
+description = "An interactive Python TUI for visualizing, exploring, and analyzing files directly in your terminal."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -15,7 +15,8 @@ dependencies = [
     "textual>=1.0.0",
     "pyarrow>=16.0.0",
     "pandas>=2.0.0",
-    "numpy>=1.20.0"
+    "numpy>=1.20.0",
+    "duckdb>=1.2.0"
 ]
 
 [project.scripts]
