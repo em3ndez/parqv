@@ -1,4 +1,3 @@
-# views/schema_view.py
 import logging
 from typing import Dict, Any, Optional, List, Union
 
@@ -13,6 +12,7 @@ log = logging.getLogger(__name__)
 
 class ColumnListItem(ListItem):
     """A ListItem that stores the column name."""
+
     def __init__(self, column_name: str) -> None:
         # Ensure IDs are CSS-safe (replace spaces, etc.)
         safe_id_name = "".join(c if c.isalnum() else '_' for c in column_name)
@@ -28,33 +28,29 @@ def format_stats_for_display(stats_data: Dict[str, Any]) -> List[Union[str, Text
     lines: List[Union[str, Text]] = []
     col_name = stats_data.get("column", "N/A")
     col_type = stats_data.get("type", "Unknown")
-    nullable_val = stats_data.get("nullable")  # Can be bool or str ("YES", "NO")
+    nullable_val = stats_data.get("nullable")
 
     if nullable_val is True:
         nullable_str = "Nullable"
     elif nullable_val is False:
         nullable_str = "Required"
-    else:  # None or other unexpected value
+    else:
         nullable_str = "Unknown Nullability"
-    # ... (rest of the function is fine, metadata stats part is already removed) ...
     lines.append(Text.assemble(("Column: ", "bold"), f"`{col_name}`"))
     lines.append(Text.assemble(("Type:   ", "bold"), f"{col_type} ({nullable_str})"))
     lines.append("─" * (len(col_name) + len(col_type) + 20))
 
-    # 계산 오류 표시
     calc_error = stats_data.get("error")
     if calc_error:
         lines.append(Text("Calculation Error:", style="bold red"))
         lines.append(f"```\n{calc_error}\n```")
         lines.append("")
 
-    # 정보 메시지 표시
     message = stats_data.get("message")
     if message:
         lines.append(Text(f"Info: {message}", style="italic cyan"))
         lines.append("")
 
-    # 계산된 통계 표시
     calculated = stats_data.get("calculated")
     if calculated:
         lines.append(Text("Calculated Statistics:", style="bold"))
@@ -75,39 +71,11 @@ def format_stats_for_display(stats_data: Dict[str, Any]) -> List[Union[str, Text
                         sub_val_str = f"{sub_val:,}" if isinstance(sub_val, (int, float)) else str(sub_val)
                         lines.append(f"    - {sub_key}: {sub_val_str}")
                 elif isinstance(value, (int, float)):
-                     lines.append(f"  - {key}: {value:,}")
+                    lines.append(f"  - {key}: {value:,}")
                 else:
                     lines.append(f"  - {key}: {value}")
         if not found_stats and not calc_error:
             lines.append(Text("  (No specific stats calculated for this type)", style="dim"))
-        # 계산된 통계 후 공백 제거 (바로 다음 섹션이 없어짐)
-        # lines.append("") # 제거
-
-    # --- 제거된 부분 시작 ---
-    # # Display Metadata Statistics (Parquet specific, but check existence)
-    # meta_stats = stats_data.get("basic_metadata_stats")
-    # if meta_stats:
-    #     lines.append(Text("Stats from File Metadata (Per Row Group):", style="bold"))
-    #     try:
-    #         # Use pretty_repr for potentially deeply nested dicts from metadata
-    #         json_str = json.dumps(meta_stats, indent=2, default=str) # Fallback if pretty_repr fails
-    #         lines.append(f"```json\n{json_str}\n```") # Use JSON block for clarity
-    #     except Exception as e:
-    #         log.warning(f"Could not format metadata stats: {e}")
-    #         lines.append(Text(f"  (Error formatting metadata stats: {e})", style="red dim"))
-    #     lines.append("") # Add space
-    #
-    # # Display Metadata Stats Error if present
-    # meta_stats_error = stats_data.get("metadata_stats_error")
-    # if meta_stats_error:
-    #     lines.append(Text(f"Metadata Stats Info/Warning: {meta_stats_error}", style="yellow"))
-    #     lines.append("")
-    # --- 제거된 부분 끝 ---
-
-
-    # 마지막에 불필요한 공백이 없도록 조정
-    # 위에서 제거된 섹션 다음에 빈 줄 추가 로직이 없으므로 별도 제거 필요 없음
-
     return lines
 
 
@@ -132,12 +100,12 @@ class SchemaView(VerticalScroll):
     def _display_default_message(self):
         """Helper to display the initial message in the stats area."""
         try:
-             stats_container = self.query_one("#schema-stats-content", Container)
-             stats_container.query("*").remove()
-             stats_container.mount(Static(self.DEFAULT_STATS_MESSAGE, classes="stats-line"))
-             stats_container.display = True
+            stats_container = self.query_one("#schema-stats-content", Container)
+            stats_container.query("*").remove()
+            stats_container.mount(Static(self.DEFAULT_STATS_MESSAGE, classes="stats-line"))
+            stats_container.display = True
         except Exception as e:
-             log.error(f"Failed to display default stats message: {e}")
+            log.error(f"Failed to display default stats message: {e}")
 
     def load_column_list(self):
         """Loads the list of columns from the data handler."""
@@ -145,12 +113,10 @@ class SchemaView(VerticalScroll):
         list_view.clear()
 
         try:
-            # --- Use generic handler check ---
             if not self.app.handler:
                 log.error("SchemaView: Data handler not available.")
                 list_view.append(ListItem(Label("[red]Data handler not available.[/red]")))
                 return
-            # ---
 
             schema_data: Optional[List[Dict[str, str]]] = self.app.handler.get_schema_data()
             log.debug(f"SchemaView: Received schema data for list: {schema_data}")
@@ -166,10 +132,10 @@ class SchemaView(VerticalScroll):
                 for col_info in schema_data:
                     column_name = col_info.get("name")
                     if column_name:
-                         list_view.append(ColumnListItem(column_name))
-                         column_count += 1
+                        list_view.append(ColumnListItem(column_name))
+                        column_count += 1
                     else:
-                         log.warning("SchemaView: Found column info without a 'name' key.")
+                        log.warning("SchemaView: Found column info without a 'name' key.")
                 log.info(f"SchemaView: Populated column list with {column_count} columns.")
 
         except Exception as e:
@@ -185,11 +151,10 @@ class SchemaView(VerticalScroll):
             loading_indicator.display = loading
             stats_scroll.display = not loading
             if loading:
-                 stats_content = self.query_one("#schema-stats-content", Container)
-                 stats_content.display = False
+                stats_content = self.query_one("#schema-stats-content", Container)
+                stats_content.display = False
         except Exception as e:
-             log.error(f"Error updating loading display: {e}")
-
+            log.error(f"Error updating loading display: {e}")
 
     async def _update_stats_display(self, lines: List[Union[str, Text]]) -> None:
         """Updates the statistics display area with formatted lines."""
@@ -208,19 +173,23 @@ class SchemaView(VerticalScroll):
                     if isinstance(line, str) and line.startswith("```"):
                         content = line.strip()
                         if content.startswith("```json"):
-                             content = content[7:]
+                            content = content[7:]
                         elif content.startswith("```"):
-                             content = content[3:]
+                            content = content[3:]
                         if content.endswith("```"):
-                             content = content[:-3]
+                            content = content[:-3]
                         content = content.strip()
                         css_class = "stats-code"
                     elif isinstance(line, Text):
                         style_str = str(line.style).lower()
-                        if "red" in style_str: css_class = "stats-error stats-line"
-                        elif "yellow" in style_str: css_class = "stats-warning stats-line"
-                        elif "italic" in style_str: css_class = "stats-info stats-line"
-                        elif "bold" in style_str: css_class = "stats-header stats-line"
+                        if "red" in style_str:
+                            css_class = "stats-error stats-line"
+                        elif "yellow" in style_str:
+                            css_class = "stats-warning stats-line"
+                        elif "italic" in style_str:
+                            css_class = "stats-info stats-line"
+                        elif "bold" in style_str:
+                            css_class = "stats-header stats-line"
                     new_widgets.append(Static(content, classes=css_class))
                 if new_widgets:
                     await stats_content_container.mount_all(new_widgets)
@@ -238,7 +207,6 @@ class SchemaView(VerticalScroll):
             except Exception:
                 pass
 
-
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle column selection in the ListView."""
         event.stop()
@@ -255,9 +223,9 @@ class SchemaView(VerticalScroll):
                 if self.app.handler:
                     stats_data = self.app.handler.get_column_stats(column_name)
                     if stats_data.get("error"):
-                         log.warning(f"Handler returned error for column '{column_name}': {stats_data['error']}")
-                         error_markup = f"[red]Error getting stats: {stats_data['error']}[/]"
-                         stats_data = {}
+                        log.warning(f"Handler returned error for column '{column_name}': {stats_data['error']}")
+                        error_markup = f"[red]Error getting stats: {stats_data['error']}[/]"
+                        stats_data = {}
                 else:
                     error_markup = "[red]Error: Data handler not available.[/]"
                     log.error("SchemaView: Data handler not found on app.")
@@ -268,7 +236,6 @@ class SchemaView(VerticalScroll):
             if error_markup:
                 lines_to_render = [Text.from_markup(error_markup)]
             else:
-                # --- 여기서 호출 전에 제거됨 ---
                 lines_to_render = format_stats_for_display(stats_data)
 
             await self._update_stats_display(lines_to_render)
