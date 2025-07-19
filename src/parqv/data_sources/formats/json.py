@@ -303,6 +303,12 @@ class JsonHandler(DataHandler):
                     # SUMMARIZE puts results in the first row
                     stats = self._format_summarize_stats(summarize_df.iloc[0])
 
+                    # Add histogram data for numeric columns
+                    try:
+                        self._add_histogram_data_if_numeric(stats, safe_column_name)
+                    except Exception as hist_e:
+                        self.logger.warning(f"Failed to add histogram data for {column_name}: {hist_e}")
+
         except duckdb.Error as db_err:
             self.logger.exception(f"DuckDB Error calculating statistics for column '{column_name}': {db_err}")
             error_msg = f"DuckDB calculation failed: {db_err}"
@@ -402,6 +408,37 @@ class JsonHandler(DataHandler):
             stats["Median (50%)"] = summarize_row['50%']
 
         return stats
+
+    def _add_histogram_data_if_numeric(self, stats: Dict[str, Any], safe_column_name: str) -> None:
+        """Add histogram data for numeric columns by sampling from DuckDB."""
+        # Check if this looks like numeric data (has Mean, Min, Max)
+        if not all(key in stats for key in ["Mean", "Min", "Max"]):
+            return
+
+        try:
+            # Sample data for histogram (limit to 10k samples for performance)
+            sample_query = f"""
+            SELECT {safe_column_name} 
+            FROM "{self._view_name}" 
+            WHERE {safe_column_name} IS NOT NULL 
+            USING SAMPLE 10000
+            """
+
+            sample_df = self._db_conn.sql(sample_query).df()
+
+            if not sample_df.empty and len(sample_df) > 10:
+                # Extract the column data
+                column_data = sample_df.iloc[:, 0].tolist()
+
+                # Filter out any remaining nulls
+                clean_data = [val for val in column_data if val is not None]
+
+                if len(clean_data) > 10:
+                    stats["_histogram_data"] = clean_data
+                    stats["_data_type"] = "numeric"
+
+        except Exception as e:
+            self.logger.warning(f"Failed to sample data for histogram: {e}")
 
     def _create_stats_result(
             self,

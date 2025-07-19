@@ -14,7 +14,6 @@
 **`parqv` is a Python-based interactive TUI (Text User Interface) tool designed to explore, analyze, and understand various data file formats directly within your terminal.** `parqv` aims to provide a unified, visual experience for quick data inspection without leaving your console.
 
 ## 💻 Demo
-
 ![parqv.gif](assets/parqv.gif)
 *(Demo shows Parquet features; UI adapts for other formats)*
 
