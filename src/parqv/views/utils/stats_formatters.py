@@ -108,7 +108,6 @@ def _format_calculated_stats(calculated: Dict[str, Any], has_error: bool = False
         "Total Count", "Valid Count", "Null Count", "Null Percentage",
         "Distinct Count", "Distinct Values (Approx)",
         "Min", "Max", "Mean", "Median (50%)", "StdDev", "Variance",
-        "Min Length", "Max Length", "Avg Length", "Average Length",
         "True Count", "False Count",
         "Value Counts"
     ]
