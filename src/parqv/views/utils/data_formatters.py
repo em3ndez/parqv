@@ -28,20 +28,42 @@ def format_metadata_for_display(metadata: Dict[str, Any]) -> Dict[str, Any]:
     # Format specific known fields with better presentation
     field_formatters = {
         "File Path": lambda x: str(x),
+        "Path": lambda x: str(x),
         "Format": lambda x: str(x).upper(),
         "Total Rows": lambda x: _format_number(x),
+        "Total Columns": lambda x: _format_number(x),
         "Columns": lambda x: _format_number(x),
         "Size": lambda x: _format_size_if_bytes(x),
+        "Memory Usage": lambda x: _format_size_if_bytes(x),
         "DuckDB View": lambda x: f"`{x}`" if x else "N/A",
     }
     
     for key, value in metadata.items():
-        if key in field_formatters:
+        if isinstance(value, dict):
+            # Handle nested dictionaries (like grouped metadata)
+            formatted[key] = _format_nested_metadata(value, field_formatters)
+        elif key in field_formatters:
             formatted[key] = field_formatters[key](value)
         else:
             formatted[key] = format_value_for_display(value)
     
     return formatted
+
+
+def _format_nested_metadata(nested_dict: Dict[str, Any], field_formatters: Dict) -> Dict[str, Any]:
+    """Format nested metadata dictionaries."""
+    formatted_nested = {}
+    
+    for key, value in nested_dict.items():
+        if isinstance(value, dict):
+            # Handle further nesting if needed
+            formatted_nested[key] = _format_nested_metadata(value, field_formatters)
+        elif key in field_formatters:
+            formatted_nested[key] = field_formatters[key](value)
+        else:
+            formatted_nested[key] = format_value_for_display(value)
+    
+    return formatted_nested
 
 
 def format_value_for_display(value: Any) -> str:

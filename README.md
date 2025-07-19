@@ -7,11 +7,11 @@
 
 ---
 
-**Supported File Formats:** ✅ **Parquet** | ✅ **JSON** / **JSON Lines (ndjson)** | *(More planned!)*
+**Supported File Formats:** ✅ **Parquet** | ✅ **JSON** / **JSON Lines (ndjson)** | ✅ **CSV / TSV** | *(More planned!)*
 
 ---
 
-**`parqv` is a Python-based interactive TUI (Text User Interface) tool designed to explore, analyze, and understand various data file formats directly within your terminal.** Initially supporting Parquet and JSON, `parqv` aims to provide a unified, visual experience for quick data inspection without leaving your console.
+**`parqv` is a Python-based interactive TUI (Text User Interface) tool designed to explore, analyze, and understand various data file formats directly within your terminal.** `parqv` aims to provide a unified, visual experience for quick data inspection without leaving your console.
 
 ## 💻 Demo
 
@@ -31,7 +31,7 @@
     *   **🔌 Extensible:** Designed with a handler interface to easily add support for more file formats in the future (like CSV, Arrow IPC, etc.).
 
 ## ✨ Features (TUI Mode)
-*   **Multi-Format Support:** Currently supports **Parquet** (`.parquet`) and **JSON/JSON Lines** (`.json`, `.ndjson`). Run `parqv <your_file.{parquet,json,ndjson}>`.
+*   **Multi-Format Support:** Now supports **Parquet** (`.parquet`), **JSON/JSON Lines** (`.json`, `.ndjson`), and **CSV/TSV** (`.csv`, `.tsv`). Run `parqv <your_file.{parquet,json,ndjson,csv,tsv}>`.
 *   **Metadata Panel:** Displays key file information (path, format, size, total rows, column count, etc.). *Fields may vary slightly depending on the file format.*
 *   **Schema Explorer:**
     *   Interactive list view of columns.

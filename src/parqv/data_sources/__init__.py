@@ -23,6 +23,8 @@ from .formats import (
     ParquetHandlerError,
     JsonHandler,
     JsonHandlerError,
+    CsvHandler,
+    CsvHandlerError,
 )
 
 __all__ = [
@@ -41,4 +43,6 @@ __all__ = [
     "ParquetHandlerError",
     "JsonHandler",
     "JsonHandlerError",
+    "CsvHandler",
+    "CsvHandlerError",
 ]
