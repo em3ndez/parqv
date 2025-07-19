@@ -435,23 +435,10 @@ class ParquetHandler(DataHandler):
         return stats
 
     def _calculate_string_binary_stats(self, column_data: pa.ChunkedArray) -> Dict[str, Any]:
-        """Calculates distinct count and optionally length stats for string/binary."""
+        """Calculates distinct count for string/binary columns."""
         stats: Dict[str, Any] = {}
         distinct_val, err = self._safe_compute(pc.count_distinct, column_data)
         stats["Distinct Count"] = f"{distinct_val:,}" if distinct_val is not None and err is None else (err or "N/A")
-
-        if pa.types.is_string(column_data.type) or pa.types.is_large_string(column_data.type):
-            lengths, err_len = self._safe_compute(pc.binary_length, column_data)
-            if err_len is None and lengths is not None:
-                min_len, err_min = self._safe_compute(pc.min, lengths)
-                stats["Min Length"] = min_len if err_min is None else err_min
-                max_len, err_max = self._safe_compute(pc.max, lengths)
-                stats["Max Length"] = max_len if err_max is None else err_max
-                avg_len, err_avg = self._safe_compute(pc.mean, lengths)
-                stats["Avg Length"] = f"{avg_len:.2f}" if avg_len is not None and err_avg is None else (
-                        err_avg or "N/A")
-            else:
-                stats.update({"Min Length": "Error", "Max Length": "Error", "Avg Length": "Error"})
         return stats
 
     def _calculate_boolean_stats(self, column_data: pa.ChunkedArray) -> Dict[str, Any]:
