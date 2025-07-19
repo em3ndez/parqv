@@ -9,7 +9,8 @@ from pathlib import Path
 SUPPORTED_EXTENSIONS: Dict[str, str] = {
     ".parquet": "parquet",
     ".json": "json", 
-    ".ndjson": "json"
+    ".ndjson": "json",
+    ".csv": "csv"
 }
 
 # Application constants
