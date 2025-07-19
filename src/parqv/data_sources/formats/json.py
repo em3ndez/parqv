@@ -1,13 +1,10 @@
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import duckdb
 import pandas as pd
 
-from .base_handler import DataHandler, DataHandlerError
-
-log = logging.getLogger(__name__)
+from ..base import DataHandler, DataHandlerError
 
 
 class JsonHandlerError(DataHandlerError):
@@ -38,6 +35,8 @@ class JsonHandler(DataHandler):
             JsonHandlerError: If the file doesn't exist, isn't a file, or if
                               initialization fails (e.g., DuckDB connection, view creation).
         """
+        super().__init__(file_path)
+
         self.file_path = self._validate_file_path(file_path)
         self._db_conn: Optional[duckdb.DuckDBPyConnection] = None
         self._view_name: str = self.DEFAULT_VIEW_NAME
@@ -48,9 +47,9 @@ class JsonHandler(DataHandler):
             self._connect_db()
             self._create_duckdb_view()
             self._load_metadata()
-            log.info(f"JsonHandler initialized successfully for: {self.file_path}")
+            self.logger.info(f"JsonHandler initialized successfully for: {self.file_path}")
         except Exception as e:
-            log.exception(f"Error during JsonHandler initialization for {self.file_path}")
+            self.logger.exception(f"Error during JsonHandler initialization for {self.file_path}")
             self.close()
             if isinstance(e, JsonHandlerError):
                 raise
@@ -67,9 +66,9 @@ class JsonHandler(DataHandler):
         """Establishes a connection to an in-memory DuckDB database."""
         try:
             self._db_conn = duckdb.connect(database=':memory:', read_only=False)
-            log.debug("DuckDB in-memory connection established.")
+            self.logger.debug("DuckDB in-memory connection established.")
         except Exception as e:
-            log.exception("Failed to initialize DuckDB connection.")
+            self.logger.exception("Failed to initialize DuckDB connection.")
             raise JsonHandlerError(f"DuckDB connection failed: {e}") from e
 
     def _create_duckdb_view(self):
@@ -83,9 +82,9 @@ class JsonHandler(DataHandler):
 
         try:
             self._db_conn.sql(load_query)
-            log.debug(f"DuckDB view '{self._view_name}' created for file '{file_path_str}'.")
+            self.logger.debug(f"DuckDB view '{self._view_name}' created for file '{file_path_str}'.")
         except duckdb.Error as db_err:
-            log.exception(f"DuckDB Error creating view '{self._view_name}' from '{file_path_str}': {db_err}")
+            self.logger.exception(f"DuckDB Error creating view '{self._view_name}' from '{file_path_str}': {db_err}")
             if "Could not open file" in str(db_err):
                 raise JsonHandlerError(
                     f"DuckDB could not open file: {file_path_str}. Check permissions or path. Error: {db_err}") from db_err
@@ -95,7 +94,7 @@ class JsonHandler(DataHandler):
             else:
                 raise JsonHandlerError(f"DuckDB failed create view for JSON file: {db_err}") from db_err
         except Exception as e:
-            log.exception(f"Unexpected error creating DuckDB view '{self._view_name}'.")
+            self.logger.exception(f"Unexpected error creating DuckDB view '{self._view_name}'.")
             raise JsonHandlerError(f"Failed to create DuckDB view: {e}") from e
 
     def _load_metadata(self):
@@ -108,27 +107,27 @@ class JsonHandler(DataHandler):
             describe_query = f"DESCRIBE \"{self._view_name}\";"
             schema_result = self._db_conn.sql(describe_query).fetchall()
             self._schema = self._parse_schema(schema_result)
-            log.debug(f"Schema fetched for view '{self._view_name}': {len(self._schema)} columns.")
+            self.logger.debug(f"Schema fetched for view '{self._view_name}': {len(self._schema)} columns.")
 
             # Fetch Row Count
             count_query = f"SELECT COUNT(*) FROM \"{self._view_name}\";"
             count_result = self._db_conn.sql(count_query).fetchone()
             self._row_count = count_result[0] if count_result else 0
-            log.debug(f"Row count fetched for view '{self._view_name}': {self._row_count}")
+            self.logger.debug(f"Row count fetched for view '{self._view_name}': {self._row_count}")
 
         except duckdb.Error as db_err:
-            log.exception(f"DuckDB Error fetching metadata for view '{self._view_name}': {db_err}")
+            self.logger.exception(f"DuckDB Error fetching metadata for view '{self._view_name}': {db_err}")
             self._schema = None
             self._row_count = None
         except Exception as e:
-            log.exception(f"Unexpected error fetching metadata for view '{self._view_name}'")
+            self.logger.exception(f"Unexpected error fetching metadata for view '{self._view_name}'")
             self._schema = None
             self._row_count = None
 
     def _parse_schema(self, describe_output: List[Tuple]) -> List[Dict[str, Any]]:
         """Parses the output of DuckDB's DESCRIBE query."""
         if not describe_output:
-            log.warning(f"DESCRIBE query for view '{self._view_name}' returned no schema info.")
+            self.logger.warning(f"DESCRIBE query for view '{self._view_name}' returned no schema info.")
             return []
 
         parsed_schema = []
@@ -141,7 +140,7 @@ class JsonHandler(DataHandler):
                     is_nullable = null_str.upper() == 'YES'
                 parsed_schema.append({"name": name, "type": type_str, "nullable": is_nullable})
             else:
-                log.warning(f"Unexpected format in DESCRIBE output row: {row}")
+                self.logger.warning(f"Unexpected format in DESCRIBE output row: {row}")
         return parsed_schema
 
     def get_schema_data(self) -> Optional[List[Dict[str, Any]]]:
@@ -153,7 +152,7 @@ class JsonHandler(DataHandler):
             or None if schema couldn't be fetched.
         """
         if self._schema is None:
-            log.warning("Schema is unavailable. It might not have been fetched successfully.")
+            self.logger.warning("Schema is unavailable. It might not have been fetched successfully.")
         return self._schema
 
     def get_metadata_summary(self) -> Dict[str, Any]:
@@ -184,7 +183,7 @@ class JsonHandler(DataHandler):
         try:
             summary["Size"] = f"{self.file_path.stat().st_size:,} bytes"
         except Exception as e:
-            log.warning(f"Could not get file size for {self.file_path}: {e}")
+            self.logger.warning(f"Could not get file size for {self.file_path}: {e}")
             summary["Size"] = "N/A"
 
         return summary
@@ -202,13 +201,13 @@ class JsonHandler(DataHandler):
             error message if fetching fails.
         """
         if not self._db_conn:
-            log.warning("Data preview unavailable: DuckDB connection is closed or uninitialized.")
+            self.logger.warning("Data preview unavailable: DuckDB connection is closed or uninitialized.")
             return pd.DataFrame({"error": ["DuckDB connection not available."]})
         if self._schema is None:
-            log.warning("Data preview unavailable: Schema couldn't be determined.")
+            self.logger.warning("Data preview unavailable: Schema couldn't be determined.")
             return pd.DataFrame({"error": ["Schema not available, cannot fetch preview."]})
         if self._row_count == 0:
-            log.info("Data preview: Source JSON view is empty.")
+            self.logger.info("Data preview: Source JSON view is empty.")
             # Return empty DataFrame with correct columns if possible
             if self._schema:
                 return pd.DataFrame(columns=[col['name'] for col in self._schema])
@@ -221,10 +220,10 @@ class JsonHandler(DataHandler):
             df = self._db_conn.sql(preview_query).df()
             return df
         except duckdb.Error as db_err:
-            log.exception(f"DuckDB error getting data preview from '{self._view_name}': {db_err}")
+            self.logger.exception(f"DuckDB error getting data preview from '{self._view_name}': {db_err}")
             return pd.DataFrame({"error": [f"DuckDB error fetching preview: {db_err}"]})
         except Exception as e:
-            log.exception(f"Unexpected error getting data preview from '{self._view_name}'")
+            self.logger.exception(f"Unexpected error getting data preview from '{self._view_name}'")
             return pd.DataFrame({"error": [f"Failed to fetch preview: {e}"]})
 
     def _get_column_info(self, column_name: str) -> Optional[Dict[str, Any]]:
@@ -274,7 +273,7 @@ class JsonHandler(DataHandler):
 
             if is_complex:
                 # Use basic counts for complex types as SUMMARIZE is less informative
-                log.debug(f"Calculating basic counts for complex type column: {column_name}")
+                self.logger.debug(f"Calculating basic counts for complex type column: {column_name}")
                 stats = self._get_basic_column_counts(safe_column_name)
                 message = f"Only basic counts calculated for complex type '{col_type}'."
                 # Attempt distinct count for complex types (can be slow/error-prone)
@@ -286,13 +285,13 @@ class JsonHandler(DataHandler):
                     else:
                         stats["Distinct Count"] = "N/A"  # Or 0 if appropriate
                 except duckdb.Error as distinct_err:
-                    log.warning(
+                    self.logger.warning(
                         f"Could not calculate distinct count for complex column '{column_name}': {distinct_err}")
                     stats["Distinct Count"] = "Error"
 
             else:
                 # Use SUMMARIZE for non-complex types
-                log.debug(f"Using SUMMARIZE for simple type column: {column_name}")
+                self.logger.debug(f"Using SUMMARIZE for simple type column: {column_name}")
                 summarize_query = f"SUMMARIZE SELECT {safe_column_name} FROM \"{self._view_name}\";"
                 summarize_df = self._db_conn.sql(summarize_query).df()
 
@@ -305,10 +304,10 @@ class JsonHandler(DataHandler):
                     stats = self._format_summarize_stats(summarize_df.iloc[0])
 
         except duckdb.Error as db_err:
-            log.exception(f"DuckDB Error calculating statistics for column '{column_name}': {db_err}")
+            self.logger.exception(f"DuckDB Error calculating statistics for column '{column_name}': {db_err}")
             error_msg = f"DuckDB calculation failed: {db_err}"
         except Exception as e:
-            log.exception(f"Unexpected error calculating statistics for column '{column_name}'")
+            self.logger.exception(f"Unexpected error calculating statistics for column '{column_name}'")
             error_msg = f"Calculation failed unexpectedly: {e}"
 
         return self._create_stats_result(
@@ -351,7 +350,7 @@ class JsonHandler(DataHandler):
                 stats["Null Percentage"] = "Error"
 
         except duckdb.Error as db_err:
-            log.warning(f"Failed to get basic counts for {safe_column_name}: {db_err}")
+            self.logger.warning(f"Failed to get basic counts for {safe_column_name}: {db_err}")
             stats["Counts Error"] = str(db_err)
         return stats
 
@@ -430,11 +429,11 @@ class JsonHandler(DataHandler):
         if self._db_conn:
             try:
                 self._db_conn.close()
-                log.info(f"DuckDB connection closed for {self.file_path}.")
+                self.logger.info(f"DuckDB connection closed for {self.file_path}.")
                 self._db_conn = None
             except Exception as e:
                 # Log error but don't raise during close typically
-                log.error(f"Error closing DuckDB connection for {self.file_path}: {e}")
+                self.logger.error(f"Error closing DuckDB connection for {self.file_path}: {e}")
                 self._db_conn = None  # Assume closed even if error occurred
 
     def __enter__(self):

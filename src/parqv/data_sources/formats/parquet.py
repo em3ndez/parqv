@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional, Union
 
@@ -7,9 +6,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from .base_handler import DataHandler, DataHandlerError
-
-log = logging.getLogger(__name__)
+from ..base import DataHandler, DataHandlerError
 
 
 class ParquetHandlerError(DataHandlerError):
@@ -49,17 +46,17 @@ class ParquetHandler(DataHandler):
             self.pq_file = pq.ParquetFile(self.file_path)
             self.schema = self.pq_file.schema_arrow
             self.metadata = self.pq_file.metadata
-            log.info(f"Successfully initialized ParquetHandler for: {self.file_path.name}")
+            self.logger.info(f"Successfully initialized ParquetHandler for: {self.file_path.name}")
 
         except FileNotFoundError as fnf_e:
-            log.error(f"File not found during ParquetHandler initialization: {fnf_e}")
+            self.logger.error(f"File not found during ParquetHandler initialization: {fnf_e}")
             raise ParquetHandlerError(str(fnf_e)) from fnf_e
         except pa.lib.ArrowIOError as arrow_io_e:
-            log.error(f"Arrow IO Error initializing ParquetHandler for {self.file_path.name}: {arrow_io_e}")
+            self.logger.error(f"Arrow IO Error initializing ParquetHandler for {self.file_path.name}: {arrow_io_e}")
             raise ParquetHandlerError(
                 f"Failed to open Parquet file '{self.file_path.name}': {arrow_io_e}") from arrow_io_e
         except Exception as e:
-            log.exception(f"Unexpected error initializing ParquetHandler for {self.file_path.name}")
+            self.logger.exception(f"Unexpected error initializing ParquetHandler for {self.file_path.name}")
             self.close()
             raise ParquetHandlerError(f"Failed to initialize Parquet handler '{self.file_path.name}': {e}") from e
 
@@ -71,10 +68,10 @@ class ParquetHandler(DataHandler):
                 # ParquetFile might not have a close method depending on source, check first
                 if hasattr(self.pq_file, 'close'):
                     self.pq_file.close()
-                log.info(f"Closed Parquet file: {self.file_path.name}")
+                self.logger.info(f"Closed Parquet file: {self.file_path.name}")
             except Exception as e:
                 # Log error during close but don't raise, as we're cleaning up
-                log.warning(f"Exception while closing Parquet file {self.file_path.name}: {e}")
+                self.logger.warning(f"Exception while closing Parquet file {self.file_path.name}: {e}")
             finally:
                 self.pq_file = None
                 self.schema = None
@@ -102,7 +99,7 @@ class ParquetHandler(DataHandler):
             A dictionary containing key metadata attributes, or an error dictionary.
         """
         if not self.metadata or not self.schema:
-            log.warning(f"Metadata or schema not available for summary: {self.file_path.name}")
+            self.logger.warning(f"Metadata or schema not available for summary: {self.file_path.name}")
             return {"error": "Metadata or schema not available"}
 
         try:
@@ -126,7 +123,7 @@ class ParquetHandler(DataHandler):
 
             return summary
         except Exception as e:
-            log.exception(f"Error generating metadata summary for {self.file_path.name}")
+            self.logger.exception(f"Error generating metadata summary for {self.file_path.name}")
             return {"error": f"Error getting metadata summary: {e}"}
 
     def get_schema_data(self) -> Optional[List[Dict[str, Any]]]:
@@ -138,7 +135,7 @@ class ParquetHandler(DataHandler):
             or None if the schema is unavailable.
         """
         if not self.schema:
-            log.warning(f"Schema is not available for get_schema_data: {self.file_path.name}")
+            self.logger.warning(f"Schema is not available for get_schema_data: {self.file_path.name}")
             return None
 
         schema_list = []
@@ -151,7 +148,7 @@ class ParquetHandler(DataHandler):
                     "nullable": field.nullable
                 })
             except Exception as e:
-                log.error(f"Error processing field '{field.name}' for schema data: {e}", exc_info=True)
+                self.logger.error(f"Error processing field '{field.name}' for schema data: {e}", exc_info=True)
                 schema_list.append({
                     "name": field.name,
                     "type": f"[Error: {e}]",
@@ -172,11 +169,11 @@ class ParquetHandler(DataHandler):
             Returns a DataFrame with an 'error' column on failure.
         """
         if not self.pq_file:
-            log.warning(f"ParquetFile handler not available for data preview: {self.file_path.name}")
+            self.logger.warning(f"ParquetFile handler not available for data preview: {self.file_path.name}")
             return pd.DataFrame({"error": ["Parquet handler not initialized or closed."]})
 
         if self.metadata and self.metadata.num_rows == 0:
-            log.info(f"Parquet file is empty based on metadata: {self.file_path.name}")
+            self.logger.info(f"Parquet file is empty based on metadata: {self.file_path.name}")
             if self.schema:
                 return pd.DataFrame(columns=self.schema.names)
             else:
@@ -206,10 +203,10 @@ class ParquetHandler(DataHandler):
             if not batches:
                 # Check if file might have rows but reading yielded nothing
                 if self.metadata and self.metadata.num_rows > 0:
-                    log.warning(
+                    self.logger.warning(
                         f"No batches read for preview, though metadata indicates {self.metadata.num_rows} rows: {self.file_path.name}")
                 else:
-                    log.info(f"No data read for preview (file likely empty): {self.file_path.name}")
+                    self.logger.info(f"No data read for preview (file likely empty): {self.file_path.name}")
                 # Return empty DF with columns if schema available
                 if self.schema:
                     return pd.DataFrame(columns=self.schema.names)
@@ -223,11 +220,11 @@ class ParquetHandler(DataHandler):
                 self_destruct=True,
                 types_mapper=pd.ArrowDtype
             )
-            log.info(f"Generated preview of {len(df)} rows for {self.file_path.name}")
+            self.logger.info(f"Generated preview of {len(df)} rows for {self.file_path.name}")
             return df
 
         except Exception as e:
-            log.exception(f"Error generating data preview from Parquet file: {self.file_path.name}")
+            self.logger.exception(f"Error generating data preview from Parquet file: {self.file_path.name}")
             return pd.DataFrame({"error": [f"Failed to fetch preview: {e}"]})
 
     def get_column_stats(self, column_name: str) -> Dict[str, Any]:
@@ -242,13 +239,13 @@ class ParquetHandler(DataHandler):
             and potential error or message keys.
         """
         if not self.pq_file or not self.schema:
-            log.warning(f"Parquet file/schema unavailable for column stats: {self.file_path.name}")
+            self.logger.warning(f"Parquet file/schema unavailable for column stats: {self.file_path.name}")
             return self._create_stats_result(column_name, None, error="File or schema not available")
 
         try:
             field = self.schema.field(column_name)
         except KeyError:
-            log.warning(f"Column '{column_name}' not found in schema: {self.file_path.name}")
+            self.logger.warning(f"Column '{column_name}' not found in schema: {self.file_path.name}")
             return self._create_stats_result(column_name, None, error=f"Column '{column_name}' not found in schema")
 
         calculated_stats: Dict[str, Any] = {}
@@ -261,7 +258,7 @@ class ParquetHandler(DataHandler):
             # Data Reading
             table = self.pq_file.read(columns=[column_name])
             column_data = table.column(0)
-            log.debug(
+            self.logger.debug(
                 f"Finished reading column '{column_name}'. Rows: {len(column_data)}, Nulls: {column_data.null_count}")
 
             # Basic Counts
@@ -274,14 +271,14 @@ class ParquetHandler(DataHandler):
                 calculated_stats["Null Count"] = f"{null_count:,}"
                 calculated_stats["Null Percentage"] = f"{(null_count / total_count * 100):.2f}%"
             else:
-                log.info(f"Column '{column_name}' read resulted in 0 rows.")
+                self.logger.info(f"Column '{column_name}' read resulted in 0 rows.")
                 message = "Column is empty (0 rows)."
                 valid_count = 0  # Ensure valid_count is 0 for later checks
 
             # Type-Specific Calculations
             if valid_count > 0:
                 col_type = field.type
-                log.debug(f"Calculating stats for type: {self._format_pyarrow_type(col_type)}")
+                self.logger.debug(f"Calculating stats for type: {self._format_pyarrow_type(col_type)}")
                 try:
                     if pa.types.is_floating(col_type) or pa.types.is_integer(col_type):
                         calculated_stats.update(self._calculate_numeric_stats(column_data))
@@ -300,11 +297,11 @@ class ParquetHandler(DataHandler):
                         calculated_stats.update(self._calculate_complex_type_stats(column_data, col_type))
                         message = f"Basic aggregate stats (min/max/mean) not applicable for complex type '{self._format_pyarrow_type(col_type)}'."
                     else:
-                        log.warning(f"Statistics calculation not fully implemented for type: {col_type}")
+                        self.logger.warning(f"Statistics calculation not fully implemented for type: {col_type}")
                         message = f"Statistics calculation not implemented for type '{self._format_pyarrow_type(col_type)}'."
 
                 except Exception as calc_err:
-                    log.exception(f"Error during type-specific calculation for column '{column_name}': {calc_err}")
+                    self.logger.exception(f"Error during type-specific calculation for column '{column_name}': {calc_err}")
                     error_msg = f"Calculation error for type {field.type}: {calc_err}"
                     calculated_stats["Calculation Error"] = str(calc_err)  # Add specific error key
 
@@ -315,10 +312,10 @@ class ParquetHandler(DataHandler):
             metadata_stats, metadata_stats_error = self._get_stats_from_metadata(column_name)
 
         except pa.lib.ArrowException as arrow_e:
-            log.exception(f"Arrow error during stats processing for column '{column_name}': {arrow_e}")
+            self.logger.exception(f"Arrow error during stats processing for column '{column_name}': {arrow_e}")
             error_msg = f"Arrow processing error: {arrow_e}"
         except Exception as e:
-            log.exception(f"Unexpected error during stats calculation for column '{column_name}'")
+            self.logger.exception(f"Unexpected error during stats calculation for column '{column_name}'")
             error_msg = f"Calculation failed unexpectedly: {e}"
 
         return self._create_stats_result(
@@ -331,7 +328,7 @@ class ParquetHandler(DataHandler):
             try:
                 return value.decode('utf-8', errors='replace')
             except Exception as e:
-                log.warning(f"Could not decode metadata bytes: {e}. Value: {value!r}")
+                self.logger.warning(f"Could not decode metadata bytes: {e}. Value: {value!r}")
                 return f"[Decode Error: {value!r}]"
         return str(value) if value is not None else None
 
@@ -348,7 +345,7 @@ class ParquetHandler(DataHandler):
                 decoded_kv[key_str] = val_str
             return decoded_kv
         except Exception as e:
-            log.warning(f"Could not decode key-value metadata: {e}")
+            self.logger.warning(f"Could not decode key-value metadata: {e}")
             return {"error": f"Error decoding key-value metadata: {e}"}
 
     def _format_pyarrow_type(self, field_type: pa.DataType) -> str:
@@ -480,7 +477,7 @@ class ParquetHandler(DataHandler):
             if 'False' not in stats["Value Counts"]: stats["Value Counts"]['False'] = "0"
 
         except Exception as vc_e:
-            log.warning(f"Boolean value count calculation error: {vc_e}", exc_info=True)
+            self.logger.warning(f"Boolean value count calculation error: {vc_e}", exc_info=True)
             stats["Value Counts"] = "Error calculating"
         return stats
 
@@ -490,7 +487,7 @@ class ParquetHandler(DataHandler):
         try:
             unwrapped_data = column_data.dictionary_decode()
             value_type = col_type.value_type
-            log.debug(f"Calculating dictionary stats based on value type: {value_type}")
+            self.logger.debug(f"Calculating dictionary stats based on value type: {value_type}")
 
             # Delegate calculation based on the *value* type
             if pa.types.is_floating(value_type) or pa.types.is_integer(value_type):
@@ -511,10 +508,10 @@ class ParquetHandler(DataHandler):
                         err or "N/A")
 
         except pa.lib.ArrowException as arrow_decode_err:
-            log.warning(f"Arrow error decoding dictionary type for stats: {arrow_decode_err}")
+            self.logger.warning(f"Arrow error decoding dictionary type for stats: {arrow_decode_err}")
             stats["Dictionary Error"] = f"Decode Error: {arrow_decode_err}"
         except Exception as dict_e:
-            log.warning(f"Could not process dictionary type for stats: {dict_e}")
+            self.logger.warning(f"Could not process dictionary type for stats: {dict_e}")
             stats["Dictionary Error"] = f"Processing Error: {dict_e}"
         return stats
 
@@ -545,17 +542,17 @@ class ParquetHandler(DataHandler):
                     rg_meta = self.metadata.row_group(i)
                     metadata_stats[group_key] = self._extract_stats_for_single_group(rg_meta, col_index)
                 except IndexError:
-                    log.warning(f"Column index {col_index} out of bounds for row group {i}.")
+                    self.logger.warning(f"Column index {col_index} out of bounds for row group {i}.")
                     metadata_stats[group_key] = "Index Error"
                 except Exception as e:
-                    log.warning(f"Error processing metadata stats for RG {i}, column '{column_name}': {e}")
+                    self.logger.warning(f"Error processing metadata stats for RG {i}, column '{column_name}': {e}")
                     metadata_stats[group_key] = f"Read Error: {e}"
 
         except KeyError:
-            log.warning(f"Column '{column_name}' not found in schema for metadata stats.")
+            self.logger.warning(f"Column '{column_name}' not found in schema for metadata stats.")
             error_str = f"Column '{column_name}' not found in schema"
         except Exception as e:
-            log.exception(f"Failed to get metadata statistics structure for column '{column_name}'.")
+            self.logger.exception(f"Failed to get metadata statistics structure for column '{column_name}'.")
             error_str = f"Error accessing metadata structure: {e}"
 
         return metadata_stats, error_str
@@ -587,10 +584,10 @@ class ParquetHandler(DataHandler):
                                             col_chunk_meta.total_uncompressed_size is not None),
             }
         except IndexError:
-            log.warning(f"Column index {col_index} out of bounds for row group {rg_meta.num_columns} columns.")
+            self.logger.warning(f"Column index {col_index} out of bounds for row group {rg_meta.num_columns} columns.")
             return "Index Error"
         except Exception as e:
-            log.error(f"Error reading column chunk metadata stats for index {col_index}: {e}", exc_info=True)
+            self.logger.error(f"Error reading column chunk metadata stats for index {col_index}: {e}", exc_info=True)
             return f"Metadata Read Error: {e}"
 
     def _create_stats_result(
@@ -613,7 +610,7 @@ class ParquetHandler(DataHandler):
                 col_type_str = self._format_pyarrow_type(field.type)
                 col_nullable = field.nullable
             except Exception as e:
-                log.error(f"Error formatting type for column {column_name}: {e}")
+                self.logger.error(f"Error formatting type for column {column_name}: {e}")
                 col_type_str = f"[Error formatting: {field.type}]"
                 col_nullable = None
 
