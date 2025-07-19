@@ -62,10 +62,6 @@ class ParqV(App[None]):
             log.error(self.error_message)
             return
 
-        # Handler Detection
-        handler_class: Optional[Type[AnyHandler]] = None
-        handler_error_class: Type[AnyHandlerError] = DataHandlerError
-        detected_type = "unknown"
         file_suffix = self.file_path.suffix.lower()
 
         if file_suffix == ".parquet":
@@ -119,8 +115,6 @@ class ParqV(App[None]):
         log.debug("App mounted.")
         try:
             header = self.query_one(Header)
-            display_name = "N/A"
-            format_name = "Unknown"
             if self.handler and self.file_path:
                 display_name = self.file_path.name
                 format_name = self.handler_type.capitalize() if self.handler_type else "Unknown"
@@ -147,7 +141,7 @@ class ParqV(App[None]):
 def run_app():
     log.info("--- parqv (ABC Handler) started ---")
     if len(sys.argv) < 2:
-        print("Usage: parqv <path_to_parquet_or_json_file>")
+        log.info("Usage: parqv <path_to_parquet_or_json_file>")
         log.error("No file path provided.")
         sys.exit(1)
 
@@ -156,7 +150,7 @@ def run_app():
 
     _path = Path(file_path_str)
     if not _path.suffix.lower() in ['.parquet', '.json', '.ndjson']:
-        print(f"Error: Unsupported file type '{_path.suffix}'. Please provide a .parquet, .json, or .ndjson file.")
+        log.error(f"Error: Unsupported file type '{_path.suffix}'. Please provide a .parquet, .json, or .ndjson file.")
         log.error(f"Unsupported file type provided via CLI: {_path.suffix}")
         sys.exit(1)
 
