@@ -366,6 +366,26 @@ class CsvHandler(DataHandler):
             stats["Mean"] = f"{series.mean():.4f}"
             stats["Median (50%)"] = series.median()
             stats["StdDev"] = f"{series.std():.4f}"
+            
+            # Add histogram data for visualization
+            try:
+                # Sample data if too large for performance
+                sample_size = min(10000, len(series))
+                if len(series) > sample_size:
+                    sampled_series = series.sample(n=sample_size, random_state=42)
+                else:
+                    sampled_series = series
+                
+                # Convert to list for histogram
+                clean_data = sampled_series.tolist()
+                
+                if len(clean_data) > 10:  # Only create histogram if we have enough data
+                    stats["_histogram_data"] = clean_data
+                    stats["_data_type"] = "numeric"
+                    
+            except Exception as e:
+                self.logger.warning(f"Failed to prepare histogram data: {e}")
+                
         except Exception as e:
             self.logger.warning(f"Error calculating numeric stats: {e}")
             stats["Calculation Error"] = str(e)

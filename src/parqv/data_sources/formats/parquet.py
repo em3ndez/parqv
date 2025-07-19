@@ -301,7 +301,8 @@ class ParquetHandler(DataHandler):
                         message = f"Statistics calculation not implemented for type '{self._format_pyarrow_type(col_type)}'."
 
                 except Exception as calc_err:
-                    self.logger.exception(f"Error during type-specific calculation for column '{column_name}': {calc_err}")
+                    self.logger.exception(
+                        f"Error during type-specific calculation for column '{column_name}': {calc_err}")
                     error_msg = f"Calculation error for type {field.type}: {calc_err}"
                     calculated_stats["Calculation Error"] = str(calc_err)  # Add specific error key
 
@@ -422,6 +423,32 @@ class ParquetHandler(DataHandler):
             variance_val, err_var = self._safe_compute(pc.variance, column_data, ddof=1)
             stats["Variance"] = f"{variance_val:.4f}" if variance_val is not None and err_var is None else (
                     err_var or "N/A")
+        distinct_val, err = self._safe_compute(pc.count_distinct, column_data)
+        stats["Distinct Count"] = f"{distinct_val:,}" if distinct_val is not None and err is None else (err or "N/A")
+
+        # Add histogram data for visualization
+        try:
+            # Convert to Python list for histogram calculation (sample if too large)
+            data_length = len(column_data)
+            sample_size = min(10000, data_length)  # Limit to 10k samples for performance
+
+            if data_length > sample_size:
+                # Sample the data
+                import random
+                indices = sorted(random.sample(range(data_length), sample_size))
+                sampled_data = [column_data[i].as_py() for i in indices]
+            else:
+                sampled_data = column_data.to_pylist()
+
+            # Filter out None values
+            clean_data = [val for val in sampled_data if val is not None]
+
+            if len(clean_data) > 10:  # Only create histogram if we have enough data
+                stats["_histogram_data"] = clean_data
+                stats["_data_type"] = "numeric"
+
+        except Exception as e:
+            self.logger.warning(f"Failed to prepare histogram data: {e}")
 
         return stats
 
