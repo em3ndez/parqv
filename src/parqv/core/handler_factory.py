@@ -5,7 +5,7 @@ Handler factory for creating appropriate data handlers based on file type.
 from pathlib import Path
 from typing import Optional
 
-from ..handlers import DataHandler, DataHandlerError, ParquetHandler, JsonHandler
+from ..data_sources import DataHandler, DataHandlerError, ParquetHandler, JsonHandler
 from .logging import get_logger
 
 log = get_logger(__name__)

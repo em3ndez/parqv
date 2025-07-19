@@ -8,7 +8,7 @@ from textual.containers import Container
 from textual.widgets import Static
 
 from ..core import get_logger
-from ..handlers import DataHandler
+from ..data_sources import DataHandler
 
 
 class BaseView(Container):

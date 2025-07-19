@@ -6,7 +6,7 @@ from textual.containers import Container
 from textual.widgets import Header, Footer, Static, Label, TabbedContent, TabPane
 
 from .core import CSS_PATH, FileValidationError, validate_and_detect_file, HandlerFactory, HandlerCreationError, get_logger
-from .handlers import DataHandler
+from .data_sources import DataHandler
 from .views.data_view import DataView
 from .views.metadata_view import MetadataView
 from .views.schema_view import SchemaView
